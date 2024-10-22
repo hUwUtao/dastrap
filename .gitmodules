@@ -1,0 +1,3 @@
+[submodule "daScript"]
+	path = libs/daScript
+	url = https://github.com/GaijinEntertainment/daScript

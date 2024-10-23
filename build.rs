@@ -31,14 +31,7 @@ fn main() {
     //     .write_to_file(out_path.join("bindings.rs"))
     //     .expect("Couldn't write bindings for daScript.h!");
 
-    let build_type = if cfg!(debug_assertions) {
-        "Debug"
-    } else {
-        "Release"
-    };
-
     let dst = Config::new("./libs/daScript")
-        .define("CMAKE_BUILD_TYPE", build_type)
         .define("DAS_CLANG_BIND_DISABLED", "ON")
         .define("DAS_LLVM_DISABLED", "ON")
         .define("DAS_QUIRREL_DISABLED", "ON")
@@ -61,7 +54,7 @@ fn main() {
         .define("DAS_AOT_EXAMPLES_DISABLED", "ON")
         .define("DAS_TUTORIAL_DISABLED", "ON")
         .build();
-
+    // Link search paths
     println!(
         "cargo:rustc-link-search=native={}/build/Debug",
         dst.display()
@@ -71,9 +64,15 @@ fn main() {
         dst.display()
     );
     println!("cargo:rustc-link-search=native={}/build", dst.display());
-    if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=static=libDaScript");
-    } else {
-        println!("cargo:rustc-link-lib=static=libDaScript");
+
+    // Libraries
+    println!("cargo:rustc-link-lib=static=libDaScript");
+
+    // Windows-specific linking for MSVC target
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+    {
+        println!("cargo:rustc-link-lib=msvcrt");
+        println!("cargo:rustc-link-lib=vcruntime");
+        println!("cargo:rustc-link-lib=ucrt");
     }
 }

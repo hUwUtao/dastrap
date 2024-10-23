@@ -4,9 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib"]
 
 [dependencies]
+jni = { version = "0.21", optional = true }
+
+[features]
+jni = ["dep:jni"]
+default = ["jni"]
 
 [build-dependencies]
 bindgen = "0.70.1"

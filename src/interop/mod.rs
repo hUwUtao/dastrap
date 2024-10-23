@@ -1,13 +1,14 @@
+#[allow(clippy::all)]
 mod c;
 
 use c::{das_context, das_program};
 use std::ffi::CString;
 
-pub struct DaScriptExecutable {
+pub struct VMProgram {
     program: *mut das_program,
 }
 
-impl DaScriptExecutable {
+impl VMProgram {
     /// Creates a new DaScriptExecutable from the given script path.
     pub fn new(script_path: &str) -> Option<Self> {
         let c_script_path = CString::new(script_path).ok()?;
@@ -25,19 +26,19 @@ impl DaScriptExecutable {
             );
 
             c::das_fileaccess_release(fAccess);
-            c::das_text_release(tout);
             c::das_modulegroup_release(dummyLibGroup);
+            c::das_text_release(tout);
 
             if program.is_null() {
                 None
             } else {
-                Some(DaScriptExecutable { program })
+                Some(VMProgram { program })
             }
         }
     }
 
-    /// Hosts the compiled program and returns a context.
-    pub fn host(&self) -> Option<*mut das_context> {
+    /// Hosts the compiled program and returns a VMContext.
+    pub fn host(&self) -> Option<VMContext> {
         unsafe {
             let context = c::das_context_make(c::das_program_context_stack_size(self.program));
             let tout = c::das_text_make_printer();
@@ -47,17 +48,42 @@ impl DaScriptExecutable {
                 c::das_text_release(tout);
                 None
             } else {
-                c::das_text_release(tout);
-                Some(context)
+                Some(VMContext { context, tout })
             }
         }
     }
 }
 
-impl Drop for DaScriptExecutable {
+impl Drop for VMProgram {
     fn drop(&mut self) {
         unsafe {
             c::das_program_release(self.program);
         }
+    }
+}
+
+pub struct VMContext {
+    context: *mut das_context,
+    tout: *mut c::das_text_writer,
+}
+
+impl Drop for VMContext {
+    fn drop(&mut self) {
+        unsafe {
+            c::das_context_release(self.context);
+            c::das_text_release(self.tout);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn load_program(path: *const std::os::raw::c_char, len: usize) -> *mut VMProgram {
+    let script_path = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(path as *const u8, len))
+    };
+    let executable = VMProgram::new(script_path);
+    match executable {
+        Some(exe) => Box::into_raw(Box::new(exe)),
+        None => std::ptr::null_mut(),
     }
 }

@@ -9,7 +9,9 @@ fn main() {
 
     let program = VMProgram::new("examples/example.das").expect("Failed to compile example.das");
 
-    let _context = program.host().expect("Failed to host program");
+    let context = program.host().expect("Failed to host program");
+
+    context.eval_function("main");
 
     dastrap::interop::engine_shutdown();
 }

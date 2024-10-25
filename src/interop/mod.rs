@@ -147,6 +147,7 @@ pub struct VMContext {
 impl VMContext {
     /// Find and evaluate a function by name
     pub fn eval_function(&self, name: &str) -> bool {
+        debug!("VM: Evaluating function '{}'", name);
         unsafe {
             let c_name = match CString::new(name) {
                 Ok(s) => s,
@@ -155,13 +156,16 @@ impl VMContext {
                     return false;
                 }
             };
+            debug!("VM: Finding function pointer");
             let function = c::das_context_find_function(self.context, c_name.as_ptr().cast_mut());
             if function.is_null() {
                 error!("Function '{}' not found", name);
                 return false;
             }
 
-            c::das_context_eval_with_catch(self.context, function, std::ptr::null_mut());
+            debug!("VM: Evaluating function with catch");
+            c::das_context_eval_with_catch(self.context, function, core::ptr::null_mut());
+            debug!("VM: Checking for exceptions");
             let exception = c::das_context_get_exception(self.context);
             if !exception.is_null() {
                 if let Ok(ex_str) = std::ffi::CStr::from_ptr(exception).to_str() {
@@ -174,6 +178,7 @@ impl VMContext {
                 }
                 return false;
             }
+            debug!("VM: Function evaluation completed successfully");
             true
         }
     }

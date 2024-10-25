@@ -53,6 +53,7 @@ fn main() {
         .define("DAS_TOOLS_DISABLED", "ON")
         .define("DAS_AOT_EXAMPLES_DISABLED", "ON")
         .define("DAS_TUTORIAL_DISABLED", "ON")
+        .profile("Release")
         .build();
     // Link search paths
     println!(

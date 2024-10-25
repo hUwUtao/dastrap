@@ -4,10 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+femme = "2.2.1"
 jni = { version = "0.21", optional = true }
+log = "0.4.22"
 
 [features]
 jni = ["dep:jni"]

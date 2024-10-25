@@ -1,1 +1,1 @@
-mod interop;
+pub mod interop;

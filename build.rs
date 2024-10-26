@@ -1,7 +1,4 @@
-use bindgen::Builder;
 use cmake::Config;
-use std::env;
-use std::path::PathBuf;
 
 fn main() {
     // let out_path = PathBuf::from("src/interop");

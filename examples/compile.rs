@@ -1,5 +1,3 @@
-#[path = "../src/lib.rs"]
-mod dastrap;
 use dastrap::interop::VMProgram;
 
 fn main() {

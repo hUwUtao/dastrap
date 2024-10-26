@@ -50,13 +50,19 @@ fn main() {
         .define("DAS_TOOLS_DISABLED", "ON")
         .define("DAS_AOT_EXAMPLES_DISABLED", "ON")
         .define("DAS_TUTORIAL_DISABLED", "ON")
+        // mysterious gaijin flags?
+        .define("DAS_ENABLE_EXCEPTIONS", "1")
+        .define("DAS_SANITIZE", "1")
+        // Windows MSVC runtime library
+        .define("CMAKE_CXX_FLAGS_RELEASE", "/MD /Zi")
+        .define("CMAKE_EXE_LINKER_FLAGS_RELEASE", "/DEBUG")
         .profile("Release")
         .build();
     // Link search paths
-    println!(
-        "cargo:rustc-link-search=native={}/build/Debug",
-        dst.display()
-    );
+    // println!(
+    //     "cargo:rustc-link-search=native={}/build/Debug",
+    //     dst.display()
+    // );
     println!(
         "cargo:rustc-link-search=native={}/build/Release",
         dst.display()

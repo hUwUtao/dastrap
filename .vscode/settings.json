@@ -1,3 +1,14 @@
 {
-    "cmake.sourceDirectory": "C:/Users/stdpi/repo/dastrap/libs/daScript"
+    "cmake.sourceDirectory": "C:/Users/stdpi/repo/dastrap/libs/daScript",
+    "files.associations": {
+        "filesystem": "cpp",
+        "xlocinfo": "cpp",
+        "xstring": "cpp",
+        "any": "cpp",
+        "exception": "cpp",
+        "functional": "cpp",
+        "future": "cpp",
+        "memory": "cpp",
+        "optional": "cpp"
+    }
 }

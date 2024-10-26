@@ -1,6 +1,6 @@
 //! C 2 CPP mapping
 //!
-//! https://github.com/GaijinEntertainment/daScript/blob/main/src/misc/daScriptC.cpp
+//! [daScriptC.h](https://github.com/GaijinEntertainment/daScript/blob/main/src/misc/daScriptC.cpp)
 
 #[path = "./c.rs"]
 mod c;

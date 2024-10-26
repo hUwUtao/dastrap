@@ -177,7 +177,8 @@ impl VMContext {
             }
 
             debug!("VM: Evaluating function with catch");
-            das_context_eval_with_catch(self.context, function, core::ptr::null_mut());
+            let mut nullptr_allocated = [0f32, 0f32, 0f32, 0f32];
+            das_context_eval_with_catch(self.context, function, nullptr_allocated.as_mut_ptr() as *mut _);
             let exception = das_context_get_exception(self.context);
             if !exception.is_null() {
                 if let Ok(ex_str) = std::ffi::CStr::from_ptr(exception).to_str() {

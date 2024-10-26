@@ -13,7 +13,7 @@ log = "0.4.22"
 
 [features]
 jni = ["dep:jni"]
-default = ["jni"]
+default = []
 
 [build-dependencies]
 bindgen = "0.70.1"

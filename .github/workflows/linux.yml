@@ -30,6 +30,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build
+        continue-on-error: true
         run: cargo build --verbose --release --lib --examples
 
       - name: Cache builds

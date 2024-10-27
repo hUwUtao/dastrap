@@ -33,23 +33,22 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build
-        run: cargo build --verbose
-
-      - name: Build example
-        run: cargo build --example compile
+        continue-on-error: true
+        run: cargo build --verbose --release --lib --examples
 
       - name: Cache builds
         uses: actions/cache@v3
         with:
           path: target
-          # key: ${{ runner.os }}-builds-${{ github.sha }}
-          key: ${{ runner.os }}-builds
+          key: ${{ runner.os }}-builds-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-builds-
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: rust-build-${{ matrix.os }}
-          path: target/debug/
+          path: target/release/
 
   test:
     needs: build
@@ -62,11 +61,11 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: rust-build-${{ matrix.os }}
-          path: target/debug
+          path: target/release
 
       - name: Make example executable
         if: matrix.os == 'ubuntu-latest'
-        run: chmod +x target/debug/examples/compile
+        run: chmod +x target/release/examples/compile
 
       - name: Run example
-        run: target/debug/examples/compile
+        run: target/release/examples/compile

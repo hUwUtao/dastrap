@@ -11,7 +11,10 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
@@ -45,20 +48,24 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: rust-build
+          name: rust-build-${{ matrix.os }}
           path: target/debug/
 
   test:
     needs: build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: rust-build
+          name: rust-build-${{ matrix.os }}
           path: target/debug
 
       - name: Make example executable
+        if: matrix.os == 'ubuntu-latest'
         run: chmod +x target/debug/examples/compile
 
       - name: Run example

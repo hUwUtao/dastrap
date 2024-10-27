@@ -11,7 +11,10 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
@@ -43,21 +46,38 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
+<<<<<<< HEAD:.github/workflows/linux.yml
           name: rust-build
           path: target/release/
+=======
+          name: rust-build-${{ matrix.os }}
+          path: target/debug/
+>>>>>>> f62d64a (test windows too):.github/workflows/build.yml
 
   test:
     needs: build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/download-artifact@v3
         with:
+<<<<<<< HEAD:.github/workflows/linux.yml
           name: rust-build
           path: target/release
 
       - name: Make example executable
         run: chmod +x target/release/examples/compile
+=======
+          name: rust-build-${{ matrix.os }}
+          path: target/debug
+
+      - name: Make example executable
+        if: matrix.os == 'ubuntu-latest'
+        run: chmod +x target/debug/examples/compile
+>>>>>>> f62d64a (test windows too):.github/workflows/build.yml
 
       - name: Run example
         run: target/release/examples/compile

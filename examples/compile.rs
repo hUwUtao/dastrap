@@ -9,6 +9,8 @@ fn main() {
 
     let context = program.host().expect("Failed to host program");
 
+    context.eval_function("test");
+
     context.eval_function("main");
 
     dastrap::interop::engine_shutdown();

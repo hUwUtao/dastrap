@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(Windows) Launch daScript tutorial07",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/libs/daScript/bin/RelWithDebInfo/tutorial07.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "console": "externalTerminal"
+        },
+        {
             "name": "(Windows) Launch `compile` example debug MSVC",
             "type": "cppvsdbg",
             "request": "launch",

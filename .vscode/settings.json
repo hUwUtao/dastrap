@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "C:/Users/stdpi/repo/dastrap/libs/daScript",
+    "cmake.sourceDirectory": "C:/Users/stdpi/repo/dastrap",
     "files.associations": {
         "filesystem": "cpp",
         "xlocinfo": "cpp",
@@ -9,6 +9,22 @@
         "functional": "cpp",
         "future": "cpp",
         "memory": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "algorithm": "cpp",
+        "atomic": "cpp",
+        "charconv": "cpp",
+        "codecvt": "cpp",
+        "format": "cpp",
+        "locale": "cpp",
+        "ostream": "cpp",
+        "regex": "cpp",
+        "sstream": "cpp",
+        "system_error": "cpp",
+        "variant": "cpp",
+        "xfacet": "cpp",
+        "xhash": "cpp",
+        "xlocale": "cpp",
+        "xlocbuf": "cpp",
+        "xutility": "cpp"
     }
 }

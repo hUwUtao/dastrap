@@ -5,14 +5,47 @@
 
 use crate::bindings::das::{
     das_context, das_context_eval_with_catch, das_context_find_function, das_context_get_exception,
-    das_context_make, das_context_release, das_error_output, das_fileaccess_make_default,
-    das_fileaccess_release, das_initialize, das_modulegroup_make, das_modulegroup_release,
-    das_program, das_program_compile, das_program_context_stack_size, das_program_err_count,
-    das_program_get_error, das_program_release, das_program_simulate, das_shutdown,
-    das_text_make_printer, das_text_release, das_text_writer,
+    das_context_make, das_context_release, das_error_output, das_file_access,
+    das_fileaccess_make_default, das_fileaccess_release, das_initialize, das_modulegroup_make,
+    das_modulegroup_release, das_program, das_program_compile, das_program_context_stack_size,
+    das_program_err_count, das_program_get_error, das_program_release, das_program_simulate,
+    das_shutdown, das_text_make_printer, das_text_release, das_text_writer,
 };
 use log::{debug, error, info};
-use std::ffi::CString;
+use std::{collections::HashMap, ffi::CString};
+
+pub struct VMEngine {
+    das_fs: *mut das_file_access,
+    das_tout: *mut das_text_writer,
+    loaded_programs: HashMap<String, VMProgram>,
+}
+
+impl VMEngine {
+    fn new() {
+        unsafe {
+            das_initialize();
+        }
+    }
+
+    fn load(&mut self, path: &str) -> Option<&VMProgram> {
+        if let Some(prog) = VMProgram::new(path) {
+            self.loaded_programs.insert(path.to_string(), prog);
+            self.loaded_programs.get(path)
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for VMEngine {
+    fn drop(&mut self) {
+        unsafe {
+            das_fileaccess_release(self.das_fs);
+            das_text_release(self.das_tout);
+            das_shutdown();
+        }
+    }
+}
 
 /// The system to load a program and compile it, prepared for context hosting
 pub struct VMProgram {
@@ -178,7 +211,11 @@ impl VMContext {
 
             debug!("VM: Evaluating function with catch");
             let mut nullptr_allocated = [0f32, 0f32, 0f32, 0f32];
-            das_context_eval_with_catch(self.context, function, nullptr_allocated.as_mut_ptr() as *mut _);
+            das_context_eval_with_catch(
+                self.context,
+                function,
+                nullptr_allocated.as_mut_ptr() as *mut _,
+            );
             let exception = das_context_get_exception(self.context);
             if !exception.is_null() {
                 if let Ok(ex_str) = std::ffi::CStr::from_ptr(exception).to_str() {

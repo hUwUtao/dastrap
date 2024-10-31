@@ -14,6 +14,9 @@ use crate::bindings::das::{
 use log::{debug, error, info};
 use std::{collections::HashMap, ffi::CString};
 
+mod extended;
+use extended::dasx_verif_fn;
+
 pub struct VMEngine {
     das_fs: *mut das_file_access,
     das_tout: *mut das_text_writer,
@@ -206,6 +209,12 @@ impl VMContext {
             let function = das_context_find_function(self.context, c_name.as_ptr().cast_mut());
             if function.is_null() {
                 error!("Function '{}' not found", name);
+                return false;
+            }
+
+            debug!("EXT: Validate function pointer");
+            if !dasx_verif_fn(function, c_name.into_raw()) {
+                error!("Pointer is unsanitized");
                 return false;
             }
 

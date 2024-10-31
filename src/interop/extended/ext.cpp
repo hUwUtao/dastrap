@@ -1,8 +1,18 @@
-#include <daScript/daScript.h>
 #include "ext.h"
 
-void iTestTheApiFrNotYetUseful() {
-    das::Context * context;
-    das::SimFunction * fn = context->getFunction(1);
-    context->evalWithCatch(fn, nullptr, nullptr);
+// static void iTestTheApiFrNotYetUseful() {
+//     das::Context * context;
+//     das::SimFunction * fn = context->getFunction(1);
+//     context->evalWithCatch(fn, nullptr, nullptr);
+// }
+
+// extern "C" {
+static bool dasx_verif_fn(das::SimFunction * fun, char * name) {
+    if (fun != nullptr && name != nullptr) {
+        if (strcmp(fun->name, name)) {
+            return true;
+        }
+    }
+    return false;
 }
+// }

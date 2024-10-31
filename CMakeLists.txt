@@ -7,7 +7,7 @@ include_directories(libs/daScript/3rdparty/fmt/include)
 
 add_library(libDaStrap STATIC
     src/interop/extended/ext.cpp
-    src/interop/extended/ext.h
+    # src/interop/extended/ext.h
 )
 target_include_directories(libDaStrap PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src

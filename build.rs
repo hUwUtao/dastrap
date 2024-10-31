@@ -1,7 +1,10 @@
 use cmake::Config;
 
 fn main() {
-    let dastrap_dst = Config::new(".").profile("RelWithDebInfo").build();
+    let dastrap_dst = Config::new(".")
+        .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreaded")
+        .profile("RelWithDebInfo")
+        .build();
 
     let dascript_dst = Config::new("./libs/daScript")
         .define("DAS_CLANG_BIND_DISABLED", "ON")
@@ -25,8 +28,8 @@ fn main() {
         .define("DAS_TOOLS_DISABLED", "ON")
         .define("DAS_AOT_EXAMPLES_DISABLED", "ON")
         .define("DAS_TUTORIAL_DISABLED", "ON")
-        .define("CMAKE_CXX_FLAGS_RELEASE", "/MD /Zi")
-        .define("CMAKE_EXE_LINKER_FLAGS_RELEASE", "/DEBUG")
+        .define("DAS_ENABLE_EXCEPTIONS", "0")
+        .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreaded")
         .profile("RelWithDebInfo")
         .build();
 

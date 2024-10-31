@@ -1,9 +1,13 @@
 use cmake::Config;
 
 fn main() {
+    // let dastrap_dst = Config::new(".")
+    //     .profile("RelWithDebInfo")
+    //     .build_target("libDaStrap")
+    //     .build();
     // println!("cargo:rerun-if-changed=src/interop/extended");
     println!("cargo:rerun-if-changed=libs/daScript");
-    
+
     macro_rules! add_search_path {
         ($path:expr) => {
             println!("cargo:rustc-link-search=native={}", $path.display())
@@ -36,22 +40,17 @@ fn main() {
         .profile("RelWithDebInfo")
         .build_target("libDaScript")
         .build();
-    
+
     add_search_path!(&dascript_dst.join("build/Release"));
     add_search_path!(&dascript_dst.join("build/RelWithDebInfo"));
     add_search_path!(&dascript_dst.join("build"));
 
     println!("cargo:rustc-link-lib=static=libDaScript");
 
-    // let dastrap_dst = Config::new(".")
-    //     .profile("RelWithDebInfo")
-    //     .build_target("libDaStrap")
-    //     .build();
-
     // add_search_path!(&dastrap_dst.join("lib"));
     // add_search_path!(&dastrap_dst.join("build/Release"));
     // add_search_path!(&dastrap_dst.join("build/RelWithDebInfo"));
     // add_search_path!(&dastrap_dst.join("build"));
-    
+
     // println!("cargo:rustc-link-lib=static=libDaStrap");
 }

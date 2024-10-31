@@ -1,10 +1,14 @@
 use cmake::Config;
 
 fn main() {
-    let dastrap_dst = Config::new(".")
-        .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreaded")
-        .profile("RelWithDebInfo")
-        .build();
+    // println!("cargo:rerun-if-changed=src/interop/extended");
+    println!("cargo:rerun-if-changed=libs/daScript");
+    
+    macro_rules! add_search_path {
+        ($path:expr) => {
+            println!("cargo:rustc-link-search=native={}", $path.display())
+        };
+    }
 
     let dascript_dst = Config::new("./libs/daScript")
         .define("DAS_CLANG_BIND_DISABLED", "ON")
@@ -29,51 +33,25 @@ fn main() {
         .define("DAS_AOT_EXAMPLES_DISABLED", "ON")
         .define("DAS_TUTORIAL_DISABLED", "ON")
         .define("DAS_ENABLE_EXCEPTIONS", "0")
-        .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreaded")
         .profile("RelWithDebInfo")
+        .build_target("libDaScript")
         .build();
-
-    setup_linking(&dascript_dst, &dastrap_dst);
-}
-
-fn setup_linking(dascript_dst: &std::path::Path, dastrap_dst: &std::path::Path) {
-    if std::path::Path::new("build/Release").exists() {
-        println!("cargo:rustc-link-search=native=build/Release");
-    }
-    if std::path::Path::new("build/RelWithDebInfo").exists() {
-        println!("cargo:rustc-link-search=native=build/RelWithDebInfo");
-    }
-    if std::path::Path::new("libs/daScript/cmake_temp/Release").exists() {
-        println!("cargo:rustc-link-search=native=libs/daScript/cmake_temp/Release");
-    }
-    if std::path::Path::new("libs/daScript/cmake_temp/RelWithDebInfo").exists() {
-        println!("cargo:rustc-link-search=native=libs/daScript/cmake_temp/RelWithDebInfo");
-    }
-
-    println!(
-        "cargo:rustc-link-search=native={}/build/Release",
-        dascript_dst.display()
-    );
-    println!(
-        "cargo:rustc-link-search=native={}/build/RelWithDebInfo",
-        dascript_dst.display()
-    );
-    println!(
-        "cargo:rustc-link-search=native={}/build",
-        dascript_dst.display()
-    );
-    println!(
-        "cargo:rustc-link-search=native={}/build",
-        dastrap_dst.display()
-    );
+    
+    add_search_path!(&dascript_dst.join("build/Release"));
+    add_search_path!(&dascript_dst.join("build/RelWithDebInfo"));
+    add_search_path!(&dascript_dst.join("build"));
 
     println!("cargo:rustc-link-lib=static=libDaScript");
-    println!("cargo:rustc-link-lib=static=libDaStrap");
 
-    #[cfg(all(target_os = "windows", target_env = "msvc"))]
-    {
-        println!("cargo:rustc-link-lib=msvcrt");
-        println!("cargo:rustc-link-lib=vcruntime");
-        println!("cargo:rustc-link-lib=ucrt");
-    }
+    // let dastrap_dst = Config::new(".")
+    //     .profile("RelWithDebInfo")
+    //     .build_target("libDaStrap")
+    //     .build();
+
+    // add_search_path!(&dastrap_dst.join("lib"));
+    // add_search_path!(&dastrap_dst.join("build/Release"));
+    // add_search_path!(&dastrap_dst.join("build/RelWithDebInfo"));
+    // add_search_path!(&dastrap_dst.join("build"));
+    
+    // println!("cargo:rustc-link-lib=static=libDaStrap");
 }

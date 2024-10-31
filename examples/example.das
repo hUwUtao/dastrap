@@ -1,3 +1,5 @@
+require ./examplelib
+
 [export]
 class Actor
     x: int = 0
@@ -16,16 +18,19 @@ def test
 
 [export]
 def main
-	// var a = 1
-	// var b = 4
-	// var c = a + b
+	var a = 1
+	var b = 4
+	var c = a + b
     // var a := 1
     // var b := 4
     // var c := a + b
-    // var actorObject = new Actor()
-    // for i in [[int 1;2;3;4]]
-    //     actorObject->inc()
-    // 	actorObject->main()
-    // print("{c}\n")
-	// print("Hello World\n")
-    var a = 1
+    var actorObject = new Actor()
+    for i in [[int 1;2;3;4]]
+        actorObject->inc()
+    	actorObject->main()
+    print("{c}\n")
+	print("Hello World\n")
+    // var a = 1
+
+def _not_exist
+    print("should not be ran")

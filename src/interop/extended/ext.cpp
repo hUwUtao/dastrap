@@ -6,7 +6,6 @@
 //     context->evalWithCatch(fn, nullptr, nullptr);
 // }
 
-// extern "C" {
 static bool dasx_verif_fn(das::SimFunction * fun, char * name) {
     if (fun != nullptr && name != nullptr) {
         if (strcmp(fun->name, name)) {
@@ -15,4 +14,3 @@ static bool dasx_verif_fn(das::SimFunction * fun, char * name) {
     }
     return false;
 }
-// }

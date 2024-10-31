@@ -4,12 +4,7 @@
 //! Also whatever has to cast ptr under mut*
 
 use crate::bindings::das::{
-    das_context, das_context_eval_with_catch, das_context_find_function, das_context_get_exception,
-    das_context_make, das_context_release, das_error_output, das_file_access,
-    das_fileaccess_make_default, das_fileaccess_release, das_initialize, das_modulegroup_make,
-    das_modulegroup_release, das_program, das_program_compile, das_program_context_stack_size,
-    das_program_err_count, das_program_get_error, das_program_release, das_program_simulate,
-    das_shutdown, das_text_make_printer, das_text_release, das_text_writer,
+    das_context, das_context_eval_with_catch, das_context_find_function, das_context_get_exception, das_context_make, das_context_release, das_error_output, das_file_access, das_fileaccess_make_default, das_fileaccess_release, das_initialize, das_module_group, das_modulegroup_make, das_modulegroup_release, das_program, das_program_compile, das_program_context_stack_size, das_program_err_count, das_program_get_error, das_program_release, das_program_simulate, das_shutdown, das_text_make_printer, das_text_release, das_text_writer
 };
 use log::{debug, error, info};
 use std::{collections::HashMap, ffi::CString};
@@ -20,20 +15,48 @@ use extended::dasx_verif_fn;
 pub struct VMEngine {
     das_fs: *mut das_file_access,
     das_tout: *mut das_text_writer,
-    loaded_programs: HashMap<String, VMProgram>,
+    das_libs: *mut das_module_group,
+    sys_progs: HashMap<String, VMProgram>,
 }
 
 impl VMEngine {
-    fn new() {
+    pub fn new() -> Option<Self> {
         unsafe {
             das_initialize();
+            
+            debug!("VM: Creating file access");
+            let das_fs = das_fileaccess_make_default();
+            if das_fs.is_null() {
+                error!("VM: Failed to create file access");
+                return None;
+            }
+
+            debug!("VM: Creating text output");
+            let das_tout = das_text_make_printer();
+            if das_tout.is_null() {
+                error!("VM: Failed to create text output");
+                das_fileaccess_release(das_fs);
+                return None;
+            }
+
+            debug!("VM: Creating module group");
+            let das_libs = das_modulegroup_make();
+            if das_libs.is_null() {
+                error!("VM: Failed to create module group");
+                das_fileaccess_release(das_fs);
+                das_text_release(das_tout);
+                return None;
+            }
+
+            Some(Self { das_fs, das_tout, das_libs, sys_progs: HashMap::new() })
         }
+
     }
 
-    fn load(&mut self, path: &str) -> Option<&VMProgram> {
-        if let Some(prog) = VMProgram::new(path) {
-            self.loaded_programs.insert(path.to_string(), prog);
-            self.loaded_programs.get(path)
+    pub fn load(&mut self, path: &str) -> Option<&VMProgram> {
+        if let Some(prog) = VMProgram::new(path, self.das_fs, self.das_tout, self.das_libs) {
+            self.sys_progs.insert(path.to_string(), prog);
+            self.sys_progs.get(path)
         } else {
             None
         }
@@ -45,6 +68,7 @@ impl Drop for VMEngine {
         unsafe {
             das_fileaccess_release(self.das_fs);
             das_text_release(self.das_tout);
+            // TODO: Flush all tracked program and contexes
             das_shutdown();
         }
     }
@@ -57,7 +81,7 @@ pub struct VMProgram {
 
 impl VMProgram {
     /// Creates a new DaScriptExecutable from the given script path.
-    pub fn new(script_path: &str) -> Option<Self> {
+    fn new(script_path: &str, das_fs: *mut das_file_access, das_tout: *mut das_text_writer, das_libs:*mut das_module_group ) -> Option<Self> {
         let c_script_path = match CString::new(script_path) {
             Ok(s) => s,
             Err(_) => {
@@ -67,36 +91,12 @@ impl VMProgram {
         };
 
         unsafe {
-            debug!("VM: Creating file access");
-            let ref_fs_access = das_fileaccess_make_default();
-            if ref_fs_access.is_null() {
-                error!("VM: Failed to create file access");
-                return None;
-            }
-
-            debug!("VM: Creating text output");
-            let tout = das_text_make_printer();
-            if tout.is_null() {
-                error!("VM: Failed to create text output");
-                das_fileaccess_release(ref_fs_access);
-                return None;
-            }
-
-            debug!("VM: Creating module group");
-            let dummy_lib_group = das_modulegroup_make();
-            if dummy_lib_group.is_null() {
-                error!("VM: Failed to create module group");
-                das_fileaccess_release(ref_fs_access);
-                das_text_release(tout);
-                return None;
-            }
-
             debug!("VM: Compiling program: {}", script_path);
             let program = das_program_compile(
                 c_script_path.as_ptr().cast_mut(),
-                ref_fs_access,
-                tout,
-                dummy_lib_group,
+                das_fs,
+                das_tout,
+                das_libs,
             );
 
             // Check for compilation errors
@@ -111,15 +111,15 @@ impl VMProgram {
                 for i in 0..err_count {
                     let error = das_program_get_error(program, i);
                     if !error.is_null() {
-                        das_error_output(error, tout);
+                        das_error_output(error, das_tout);
                     }
                 }
             }
 
             debug!("VM: Finished compilation, releasing");
-            das_fileaccess_release(ref_fs_access);
-            das_modulegroup_release(dummy_lib_group);
-            das_text_release(tout);
+            das_fileaccess_release(das_fs);
+            das_modulegroup_release(das_libs);
+            das_text_release(das_tout);
 
             if program.is_null() {
                 error!("VM: Failed to compile program");
@@ -212,11 +212,11 @@ impl VMContext {
                 return false;
             }
 
-            debug!("EXT: Validate function pointer");
-            if !dasx_verif_fn(function, c_name.into_raw()) {
-                error!("Pointer is unsanitized");
-                return false;
-            }
+            // debug!("EXT: Validate function pointer");
+            // if !dasx_verif_fn(function, c_name.into_raw()) {
+            //     error!("Pointer is unsanitized");
+            //     return false;
+            // }
 
             debug!("VM: Evaluating function with catch");
             let mut nullptr_allocated = [0f32, 0f32, 0f32, 0f32];
@@ -271,31 +271,31 @@ pub extern "C" fn engine_shutdown() {
     }
 }
 
-#[no_mangle]
-/// Load program into context
-pub extern "C" fn engine_load_program(
-    path: *const std::os::raw::c_char,
-    len: usize,
-) -> *mut VMProgram {
-    if path.is_null() {
-        error!("Null path provided");
-        return std::ptr::null_mut();
-    }
+// #[no_mangle]
+// /// Load program into context
+// pub extern "C" fn engine_load_program(
+//     path: *const std::os::raw::c_char,
+//     len: usize,
+// ) -> *mut VMProgram {
+//     if path.is_null() {
+//         error!("Null path provided");
+//         return std::ptr::null_mut();
+//     }
 
-    debug!("Loading program from raw path");
-    let script_path = unsafe {
-        match std::str::from_utf8(std::slice::from_raw_parts(path as *const u8, len)) {
-            Ok(s) => s,
-            Err(_) => {
-                error!("Invalid UTF-8 in path");
-                return std::ptr::null_mut();
-            }
-        }
-    };
+//     debug!("Loading program from raw path");
+//     let script_path = unsafe {
+//         match std::str::from_utf8(std::slice::from_raw_parts(path as *const u8, len)) {
+//             Ok(s) => s,
+//             Err(_) => {
+//                 error!("Invalid UTF-8 in path");
+//                 return std::ptr::null_mut();
+//             }
+//         }
+//     };
 
-    let executable = VMProgram::new(script_path);
-    match executable {
-        Some(exe) => Box::into_raw(Box::new(exe)),
-        None => std::ptr::null_mut(),
-    }
-}
+//     let executable = VMProgram::new(script_path);
+//     match executable {
+//         Some(exe) => Box::into_raw(Box::new(exe)),
+//         None => std::ptr::null_mut(),
+//     }
+// }

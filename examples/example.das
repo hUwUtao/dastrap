@@ -1,4 +1,4 @@
-require ./examplelib
+// require examplib
 
 [export]
 class Actor
@@ -28,7 +28,7 @@ def main
     for i in [[int 1;2;3;4]]
         actorObject->inc()
     	actorObject->main()
-    print("{c}\n")
+    // print("{c}\n")
 	print("Hello World\n")
     // var a = 1
 

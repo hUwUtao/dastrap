@@ -4,13 +4,19 @@
 //! Also whatever has to cast ptr under mut*
 
 use crate::bindings::das::{
-    das_context, das_context_eval_with_catch, das_context_find_function, das_context_get_exception, das_context_make, das_context_release, das_error_output, das_file_access, das_fileaccess_make_default, das_fileaccess_release, das_initialize, das_module_group, das_modulegroup_make, das_modulegroup_release, das_program, das_program_compile, das_program_context_stack_size, das_program_err_count, das_program_get_error, das_program_release, das_program_simulate, das_shutdown, das_text_make_printer, das_text_release, das_text_writer
+    das_context, das_context_eval_with_catch_unaligned, das_context_find_function,
+    das_context_get_exception, das_context_make, das_context_release, das_error_output,
+    das_file_access, das_fileaccess_make_default, das_fileaccess_release, das_initialize,
+    das_module_group, das_modulegroup_make, das_modulegroup_release, das_program,
+    das_program_compile, das_program_context_stack_size, das_program_err_count,
+    das_program_get_error, das_program_release, das_program_simulate, das_shutdown,
+    das_text_make_printer, das_text_release, das_text_writer, V4FloatUnlined,
 };
 use log::{debug, error, info};
 use std::{collections::HashMap, ffi::CString};
 
-mod extended;
-use extended::dasx_verif_fn;
+// mod extended;
+// use extended::dasx_verif_fn;
 
 pub struct VMEngine {
     das_fs: *mut das_file_access,
@@ -23,7 +29,7 @@ impl VMEngine {
     pub fn new() -> Option<Self> {
         unsafe {
             das_initialize();
-            
+
             debug!("VM: Creating file access");
             let das_fs = das_fileaccess_make_default();
             if das_fs.is_null() {
@@ -48,9 +54,13 @@ impl VMEngine {
                 return None;
             }
 
-            Some(Self { das_fs, das_tout, das_libs, sys_progs: HashMap::new() })
+            Some(Self {
+                das_fs,
+                das_tout,
+                das_libs,
+                sys_progs: HashMap::new(),
+            })
         }
-
     }
 
     pub fn load(&mut self, path: &str) -> Option<&VMProgram> {
@@ -81,7 +91,12 @@ pub struct VMProgram {
 
 impl VMProgram {
     /// Creates a new DaScriptExecutable from the given script path.
-    fn new(script_path: &str, das_fs: *mut das_file_access, das_tout: *mut das_text_writer, das_libs:*mut das_module_group ) -> Option<Self> {
+    fn new(
+        script_path: &str,
+        das_fs: *mut das_file_access,
+        das_tout: *mut das_text_writer,
+        das_libs: *mut das_module_group,
+    ) -> Option<Self> {
         let c_script_path = match CString::new(script_path) {
             Ok(s) => s,
             Err(_) => {
@@ -148,7 +163,7 @@ impl Drop for VMProgram {
 /// A context hosted from `VMProgram`, manage the context
 pub struct VMContext {
     context: *mut das_context,
-    tout: *mut das_text_writer,
+    // tout: *mut das_text_writer,
 }
 
 impl VMContext {
@@ -180,22 +195,20 @@ impl VMContext {
                         das_error_output(error, tout);
                     }
                 }
-                das_context_release(context);
                 das_text_release(tout);
                 None
             } else {
-                Some(VMContext { context, tout })
+                das_text_release(tout);
+                Some(VMContext {
+                    context,
+                    // tout
+                })
             }
         }
     }
 
     /// Find and evaluate a function by name
     pub fn eval_function(&self, name: &str) -> bool {
-        if self.context.is_null() || self.tout.is_null() {
-            error!("VM: Invalid context or text output");
-            return false;
-        }
-
         debug!("VM: Evaluating function '{}'", name);
         unsafe {
             let c_name = match CString::new(name) {
@@ -219,12 +232,12 @@ impl VMContext {
             // }
 
             debug!("VM: Evaluating function with catch");
-            let mut nullptr_allocated = [0f32, 0f32, 0f32, 0f32];
-            das_context_eval_with_catch(
-                self.context,
-                function,
-                nullptr_allocated.as_mut_ptr() as *mut _,
-            );
+            // let mut nullptr_allocated = [0f32, 0f32, 0f32, 0f32];
+
+            let mut args = V4FloatUnlined::default();
+            let mut ret = V4FloatUnlined::default();
+
+            das_context_eval_with_catch_unaligned(self.context, function, args.raw(), 0, ret.raw());
             let exception = das_context_get_exception(self.context);
             if !exception.is_null() {
                 if let Ok(ex_str) = std::ffi::CStr::from_ptr(exception).to_str() {
@@ -246,9 +259,10 @@ impl VMContext {
 impl Drop for VMContext {
     fn drop(&mut self) {
         unsafe {
-            debug!("VM: Releasing context");
+            debug!("VM: Releasing context ctx");
             das_context_release(self.context);
-            das_text_release(self.tout);
+            // debug!("VM: Releasing context tout");
+            // das_text_release(self.tout);
         }
     }
 }

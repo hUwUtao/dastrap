@@ -13,16 +13,34 @@ use crate::bindings::das::{
     das_text_make_printer, das_text_release, das_text_writer, V4FloatUnlined,
 };
 use log::{debug, error, info};
-use std::{collections::HashMap, ffi::CString};
+use parking_lot::RwLock;
+use std::{collections::HashMap, ffi::CString, sync::Arc};
 
 // mod extended;
 // use extended::dasx_verif_fn;
 
+/// `VMEngine` must flush the item before dying
+pub trait VMHang: Sized {}
+
+/// Track for contexes, which allows graceful shutdown
+pub struct VMState {
+    hanged: bool,
+    tracked: Vec<VMHangedLock<VMContext>>,
+}
+
+/// Hanging object, which allows to drop but no
+pub struct VMHanging<T: VMHang> {
+    destroyed: bool,
+    hanged: Option<Box<T>>,
+}
+
+/// Engine, the host of dascript
 pub struct VMEngine {
     das_fs: *mut das_file_access,
     das_tout: *mut das_text_writer,
     das_libs: *mut das_module_group,
-    sys_progs: HashMap<String, VMProgram>,
+    state: Arc<RwLock<VMState>>,
+    sys_progs: HashMap<String, Arc<VMProgram>>,
 }
 
 impl VMEngine {
@@ -54,44 +72,74 @@ impl VMEngine {
                 return None;
             }
 
+            let state = VMState {
+                hanged: false,
+                tracked: Vec::new(),
+            };
+
             Some(Self {
                 das_fs,
                 das_tout,
                 das_libs,
+                state: Arc::new(RwLock::new(state)),
                 sys_progs: HashMap::new(),
             })
         }
     }
 
-    pub fn load(&mut self, path: &str) -> Option<&VMProgram> {
-        if let Some(prog) = VMProgram::new(path, self.das_fs, self.das_tout, self.das_libs) {
-            self.sys_progs.insert(path.to_string(), prog);
-            self.sys_progs.get(path)
+    pub fn load(&mut self, path: &str) -> Option<Arc<VMProgram>> {
+        if let Some(prog) = VMProgram::new(
+            self.state.clone(),
+            path,
+            self.das_fs,
+            self.das_tout,
+            self.das_libs,
+        ) {
+            self.sys_progs.insert(path.to_string(), Arc::new(prog));
+            self.sys_progs.get(path).map(|f| f.clone())
         } else {
             None
         }
     }
 }
 
+#[cfg(feature = "free")]
 impl Drop for VMEngine {
     fn drop(&mut self) {
-        unsafe {
-            das_fileaccess_release(self.das_fs);
-            das_text_release(self.das_tout);
-            // TODO: Flush all tracked program and contexes
-            das_shutdown();
+        let mut sref = self.state.write();
+        if !sref.hanged {
+            sref.hanged = true;
+            unsafe {
+                debug!("VM: DANGERously VMEngine is memdropped");
+
+                das_fileaccess_release(self.das_fs);
+                das_text_release(self.das_tout);
+                das_modulegroup_release(self.das_libs);
+
+                for ctx in &mut sref.tracked {
+                    ctx.release();
+                }
+
+                self.sys_progs.clear();
+
+                das_shutdown();
+            }
+        } else {
+            debug!("VM: VMEngine is flushed twice?");
         }
     }
 }
 
 /// The system to load a program and compile it, prepared for context hosting
 pub struct VMProgram {
+    state: Arc<RwLock<VMState>>,
     program: *mut das_program,
 }
 
 impl VMProgram {
     /// Creates a new DaScriptExecutable from the given script path.
     fn new(
+        state: Arc<RwLock<VMState>>,
         script_path: &str,
         das_fs: *mut das_file_access,
         das_tout: *mut das_text_writer,
@@ -131,32 +179,60 @@ impl VMProgram {
                 }
             }
 
-            debug!("VM: Finished compilation, releasing");
-            das_fileaccess_release(das_fs);
-            das_modulegroup_release(das_libs);
-            das_text_release(das_tout);
+            // do not release global object
+            // debug!("VM: Finished compilation, releasing");
+            // das_fileaccess_release(das_fs);
+            // das_modulegroup_release(das_libs);
+            // das_text_release(das_tout);
 
             if program.is_null() {
                 error!("VM: Failed to compile program");
                 None
             } else {
-                Some(VMProgram { program })
+                Some(VMProgram { state, program })
             }
         }
     }
 
     /// Hosts the compiled program and returns a VMContext.
-    pub fn host(&self) -> Option<VMContext> {
-        VMContext::new(self.program)
+    pub fn host(&self) -> Option<VMHangedLock<VMContext>> {
+        VMContext::new(self.state.clone(), self.program)
     }
 }
 
+#[cfg(feature = "free")]
 impl Drop for VMProgram {
     fn drop(&mut self) {
         unsafe {
             debug!("VM: Releasing program");
             das_program_release(self.program);
         }
+    }
+}
+
+/// A locked context to sync with VMState
+pub struct VMHangedLock<T: VMHang>(pub Arc<RwLock<VMHanging<T>>>);
+
+impl<T: VMHang> VMHangedLock<T> {
+    fn new(inner: T) -> Self {
+        Self(Arc::new(RwLock::new(VMHanging {
+            destroyed: false,
+            hanged: Some(Box::new(inner)),
+        })))
+    }
+
+    fn release(&mut self) {
+        let mut wref = self.0.write();
+        if !wref.destroyed {
+            wref.destroyed = true;
+            wref.hanged = None;
+        }
+    }
+}
+
+impl<T: VMHang> Clone for VMHangedLock<T> {
+    fn clone(&self) -> Self {
+        VMHangedLock::<T>(Arc::clone(&&self.0))
     }
 }
 
@@ -168,7 +244,7 @@ pub struct VMContext {
 
 impl VMContext {
     /// Creates a new VMContext
-    fn new(program: *mut das_program) -> Option<Self> {
+    fn new(state: Arc<RwLock<VMState>>, program: *mut das_program) -> Option<VMHangedLock<Self>> {
         unsafe {
             debug!("VM: Creating context");
             let context = das_context_make(das_program_context_stack_size(program));
@@ -199,17 +275,30 @@ impl VMContext {
                 None
             } else {
                 das_text_release(tout);
-                Some(VMContext {
+                let hanging = VMHangedLock::new(VMContext {
                     context,
                     // tout
-                })
+                });
+                state.write().tracked.push(hanging.clone());
+                Some(hanging)
             }
         }
     }
+}
 
+impl VMHangedLock<VMContext> {
     /// Find and evaluate a function by name
     pub fn eval_function(&self, name: &str) -> bool {
         debug!("VM: Evaluating function '{}'", name);
+
+        // weird lifetime and scope hacking just to get the rawptr
+        let lockref = self.0.read();
+        let vmctx = match &lockref.hanged {
+            Some(inner) => inner,
+            None => panic!("unwrap failed"),
+        };
+
+
         unsafe {
             let c_name = match CString::new(name) {
                 Ok(s) => s,
@@ -219,7 +308,7 @@ impl VMContext {
                 }
             };
             debug!("VM: Finding function pointer");
-            let function = das_context_find_function(self.context, c_name.as_ptr().cast_mut());
+            let function = das_context_find_function(vmctx.context, c_name.as_ptr().cast_mut());
             if function.is_null() {
                 error!("Function '{}' not found", name);
                 return false;
@@ -237,8 +326,14 @@ impl VMContext {
             let mut args = V4FloatUnlined::default();
             let mut ret = V4FloatUnlined::default();
 
-            das_context_eval_with_catch_unaligned(self.context, function, args.raw(), 0, ret.raw());
-            let exception = das_context_get_exception(self.context);
+            das_context_eval_with_catch_unaligned(
+                vmctx.context,
+                function,
+                args.raw(),
+                0,
+                ret.raw(),
+            );
+            let exception = das_context_get_exception(vmctx.context);
             if !exception.is_null() {
                 if let Ok(ex_str) = std::ffi::CStr::from_ptr(exception).to_str() {
                     error!("Exception while evaluating '{}': {}", name, ex_str);
@@ -256,6 +351,7 @@ impl VMContext {
     }
 }
 
+#[cfg(feature = "free")]
 impl Drop for VMContext {
     fn drop(&mut self) {
         unsafe {
@@ -266,6 +362,8 @@ impl Drop for VMContext {
         }
     }
 }
+
+impl VMHang for VMContext {}
 
 #[no_mangle]
 /// Initialize daScript runtime

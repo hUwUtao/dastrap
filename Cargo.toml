@@ -7,14 +7,17 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-femme = "2.2.1"
+femme = "2.2"
 jni = { version = "0.21", optional = true }
-log = "0.4.22"
+log = "0.4"
+parking_lot = "0.12"
 
 [features]
+free = []               # free object (uncheck this brings unforseen consequences)
+important = ["free"]    # shouldn't uncheck this if you are unsure
 jni = ["dep:jni"]
-default = []
+default = ["important"]
 
 [build-dependencies]
-bindgen = "0.70.1"
-cmake = "0.1.51"
+bindgen = "0.70"
+cmake = "0.1"

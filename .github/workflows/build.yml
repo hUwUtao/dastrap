@@ -40,15 +40,22 @@ jobs:
         uses: actions/cache@v3
         with:
           path: target
-          key: ${{ runner.os }}-builds-${{ github.sha }}
+          key: ${{ runner.os }}-builds-
           restore-keys: |
             ${{ runner.os }}-builds-
 
-      - name: Upload artifacts
+      - name: Upload all artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: rust-build-${{ matrix.os }}
-          path: target/release/
+          name: rust-build-artifacts-${{ matrix.os }}
+          path: |
+            target/release/examples
+            target/release/lib*
+            target/*/build/dastrap/*- name: Upload artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                name: rust-build-${{ matrix.os }}
+                path: target/release/
 
   test:
     needs: build

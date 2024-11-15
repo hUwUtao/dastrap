@@ -10,6 +10,14 @@ fn main() {
         .load("examples/example.das")
         .expect("Failed to load program");
 
+    let _program_b = engine
+        .load("examples/examplib.das")
+        .expect("cant load second program")
+        .host()
+        .expect("g");
+
+    _program_b.eval_function("examplelib_test");
+
     let context = program
         .host()
         .expect("Example failed: Failed to host program.");
@@ -20,5 +28,5 @@ fn main() {
 
     context.eval_function("main");
 
-    dastrap::interop::engine_shutdown();
+    // dastrap::interop::engine_shutdown();
 }

@@ -14,7 +14,7 @@ class Actor
 
 [export]
 def test
-    print("74:cc:f0:16:d6:f6:2a:77")
+    print("74:cc:f0:16:d6:f6:2a:77\n")
 
 [export]
 def main
